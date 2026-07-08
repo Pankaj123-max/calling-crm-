@@ -2,500 +2,559 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import os
-import webbrowser
-import urllib.parse
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 import io
 import base64
 import time
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import random
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
-    page_title="Calling CRM - Pankaj Jadhav",
-    page_icon="📞",
-    layout="wide"
+    page_title="Calling CRM Pro",
+    page_icon="🚀",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# ==================== CSS ====================
+# ==================== CUSTOM CSS WITH PREMIUM ANIMATIONS ====================
 st.markdown("""
 <style>
-    /* ===== GLOBAL RESET ===== */
-    .main > div {
-        padding: 0.1rem 0.5rem !important;
+    /* Import Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    
+    /* Global Styles */
+    .stApp {
+        background: linear-gradient(135deg, #f6f9fc 0%, #e8f0fe 100%);
+        font-family: 'Inter', sans-serif;
     }
     
-    /* ===== HEADER - WHITE BACKGROUND ===== */
-    .main-header {
-        background: #ffffff !important;
-        padding: 0.5rem 1.5rem;
-        border-radius: 12px;
-        text-align: center;
-        color: #000000 !important;
-        margin-bottom: 0.5rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-        border: 1px solid #e9ecef;
+    /* Animated Background with Particles */
+    .stApp::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+            radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 50%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 50% 80%, rgba(236, 72, 153, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+        animation: gradientShift 20s ease-in-out infinite;
     }
+    
+    @keyframes gradientShift {
+        0%, 100% { opacity: 0.5; transform: scale(1); }
+        33% { opacity: 0.8; transform: scale(1.05); }
+        66% { opacity: 0.6; transform: scale(0.95); }
+    }
+    
+    /* Floating particles animation */
+    .particles {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+    }
+    
+    /* Main container with premium glassmorphism */
+    .main-container {
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 1.5rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        margin-bottom: 1rem;
+        animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        z-index: 1;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(40px) scale(0.98);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    
+    /* Premium Header with animated gradient */
+    .main-header {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 30%, #a855f7 60%, #ec4899 100%);
+        background-size: 300% 300%;
+        padding: 1rem 2rem;
+        border-radius: 20px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 10px 40px rgba(99, 102, 241, 0.3);
+        animation: gradientMove 4s ease-in-out infinite, slideDown 0.6s ease-out;
+        position: relative;
+        overflow: hidden;
+        z-index: 2;
+    }
+    
+    @keyframes gradientMove {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%);
+        animation: shimmer 4s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { transform: rotate(0deg) scale(1); }
+        50% { transform: rotate(180deg) scale(1.2); }
+        100% { transform: rotate(360deg) scale(1); }
+    }
+    
     .main-header h1 {
         margin: 0;
-        font-size: 1.4rem;
-        color: #000000 !important;
-        -webkit-text-fill-color: #000000 !important;
-        letter-spacing: 1px;
-        font-weight: bold;
-    }
-    .main-header p {
-        margin: 0;
-        opacity: 0.6;
-        font-size: 0.6rem;
-        color: #636e72 !important;
-        letter-spacing: 2px;
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: white;
+        letter-spacing: 0.5px;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        position: relative;
+        z-index: 1;
     }
     
-    /* ===== SEARCH BAR ===== */
-    .search-container {
-        background: #ffffff;
-        padding: 0.5rem 1rem;
-        border-radius: 12px;
-        border: 2px solid #6c5ce7;
-        box-shadow: 0 2px 15px rgba(108, 92, 231, 0.1);
-        margin-bottom: 0.5rem;
-    }
-    .search-container input {
-        border: none !important;
-        outline: none !important;
-        font-size: 1rem !important;
-        padding: 0.5rem !important;
-        width: 100% !important;
-        background: transparent !important;
-    }
-    .search-container input:focus {
-        box-shadow: none !important;
-        border: none !important;
-    }
-    .search-icon {
-        color: #6c5ce7;
-        font-size: 1.2rem;
-        margin-right: 0.5rem;
+    .main-header .subtitle {
+        color: rgba(255,255,255,0.9);
+        font-size: 0.85rem;
+        font-weight: 300;
+        position: relative;
+        z-index: 1;
     }
     
-    /* ===== SEARCH RESULTS ===== */
-    .search-result {
-        background: #f8f9fa;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        border-left: 4px solid #6c5ce7;
-        margin-bottom: 0.3rem;
-        cursor: pointer;
-        transition: all 0.3s;
-    }
-    .search-result:hover {
-        background: #e9ecef;
-        transform: translateX(5px);
-    }
-    .search-result-name {
-        font-weight: bold;
-        color: #000000;
-        font-size: 0.9rem;
-    }
-    .search-result-phone {
-        color: #6c5ce7;
-        font-size: 0.8rem;
-    }
-    
-    /* ===== METRIC CARDS - WHITE BACKGROUND ===== */
-    .metric-card {
-        background: #ffffff !important;
-        padding: 0.4rem;
-        border-radius: 10px;
-        text-align: center;
-        border: 1px solid #e9ecef;
-        transition: all 0.3s;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-    .metric-card:hover {
-        border-color: #6c5ce7;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(108, 92, 231, 0.15);
-    }
-    .metric-value {
-        font-size: 1.2rem;
-        font-weight: bold;
-        color: #6c5ce7;
-    }
-    .metric-label {
-        font-size: 0.5rem;
-        opacity: 0.6;
-        color: #636e72;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    
-    /* ===== CUSTOMER CARD - WHITE BACKGROUND ===== */
+    /* Premium Customer Card */
     .customer-card {
-        background: #ffffff !important;
-        padding: 0.8rem 1.2rem;
-        border-radius: 12px;
-        border-left: 5px solid #6c5ce7;
-        margin-bottom: 0.5rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-        border: 1px solid #e9ecef;
+        background: white;
+        padding: 1.5rem 2rem;
+        border-radius: 20px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+        border-left: 6px solid #6366f1;
+        margin-bottom: 1rem;
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: slideInLeft 0.6s ease-out;
+        position: relative;
+        overflow: hidden;
+        z-index: 2;
     }
-    .customer-name {
+    
+    .customer-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.03) 0%, transparent 100%);
+        pointer-events: none;
+    }
+    
+    .customer-card:hover {
+        transform: translateY(-6px) scale(1.01);
+        box-shadow: 0 12px 40px rgba(99, 102, 241, 0.15);
+        border-left-color: #8b5cf6;
+    }
+    
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    .customer-card .name {
         font-size: 1.4rem;
-        font-weight: bold;
-        color: #000000 !important;
-        margin: 0;
+        font-weight: 700;
+        color: #1a1a2e;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
-    .customer-phone {
+    
+    .customer-card .phone {
         font-size: 1.1rem;
-        color: #6c5ce7 !important;
-        margin: 0;
-    }
-    .customer-status {
-        color: #636e72 !important;
-        font-size: 0.75rem;
-        margin-top: 3px;
-    }
-    .customer-status strong {
-        color: #6c5ce7 !important;
+        color: #4a4a6a;
+        font-weight: 500;
     }
     
-    /* ===== BIG CALLING NUMBER ===== */
-    .calling-number-big {
-        background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-        color: white;
-        padding: 0.8rem 1rem;
-        border-radius: 12px;
-        text-align: center;
-        font-size: 1.6rem !important;
-        font-weight: bold;
-        margin: 0.3rem 0;
-        box-shadow: 0 4px 20px rgba(108, 92, 231, 0.3);
-        letter-spacing: 2px;
-        border: 2px solid rgba(255, 255, 255, 0.1);
-    }
-    .calling-number-big small {
-        font-size: 0.7rem;
-        opacity: 0.8;
-        font-weight: normal;
-        display: block;
-        margin-bottom: 0.2rem;
+    .customer-card .info {
+        font-size: 0.85rem;
+        color: #666;
+        margin-top: 0.3rem;
     }
     
-    /* ===== SIDEBAR ===== */
-    .sidebar-brand {
-        text-align: center;
-        padding: 0.5rem 0;
-        border-bottom: 2px solid rgba(108, 92, 231, 0.2);
-        margin-bottom: 0.5rem;
-    }
-    .sidebar-brand h3 {
-        color: #6c5ce7;
-        margin: 0;
-        font-size: 1.1rem;
-        letter-spacing: 2px;
-    }
-    .sidebar-brand p {
-        color: #b2bec3;
-        font-size: 0.6rem;
-        margin: 0;
-        opacity: 0.6;
-    }
-    
-    /* ===== ADB STATUS ===== */
-    .adb-status {
-        padding: 0.3rem;
-        border-radius: 8px;
-        text-align: center;
-        font-weight: bold;
-        font-size: 0.75rem;
-        letter-spacing: 1px;
-    }
-    .adb-connected {
-        background: linear-gradient(135deg, #00b894, #00cec9);
-        color: white;
-        box-shadow: 0 2px 10px rgba(0, 206, 201, 0.2);
-    }
-    .adb-disconnected {
-        background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-        color: white;
-        box-shadow: 0 2px 10px rgba(255, 107, 107, 0.2);
-    }
-    
-    /* ===== SECTION TITLES ===== */
-    .section-title {
-        color: #6c5ce7;
-        font-size: 0.65rem;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        border-bottom: 1px solid rgba(108, 92, 231, 0.15);
-        padding-bottom: 0.2rem;
-        margin-bottom: 0.3rem;
-        font-weight: bold;
-    }
-    
-    /* ===== BIG CALL BUTTONS ===== */
-    .big-btn-call > button {
-        background: linear-gradient(135deg, #00b894, #00cec9) !important;
-        color: white !important;
-        padding: 0.8rem 0.5rem !important;
-        font-size: 1.4rem !important;
-        border-radius: 12px !important;
-        font-weight: bold !important;
-        border: none !important;
-        box-shadow: 0 4px 20px rgba(0, 206, 201, 0.3) !important;
-        transition: all 0.3s !important;
-        width: 100% !important;
-        height: auto !important;
-    }
-    .big-btn-call > button:hover {
-        transform: scale(1.03) !important;
-        box-shadow: 0 4px 30px rgba(0, 206, 201, 0.5) !important;
-    }
-    
-    .big-btn-end > button {
-        background: linear-gradient(135deg, #ff6b6b, #ee5a24) !important;
-        color: white !important;
-        padding: 0.8rem 0.5rem !important;
-        font-size: 1.4rem !important;
-        border-radius: 12px !important;
-        font-weight: bold !important;
-        border: none !important;
-        box-shadow: 0 4px 20px rgba(255, 107, 107, 0.3) !important;
-        transition: all 0.3s !important;
-        width: 100% !important;
-        height: auto !important;
-    }
-    .big-btn-end > button:hover {
-        transform: scale(1.03) !important;
-        box-shadow: 0 4px 30px rgba(255, 107, 107, 0.5) !important;
-    }
-    
-    /* ===== BIG STATUS BUTTONS ===== */
-    .status-btn > button {
-        background: linear-gradient(135deg, #f8f9fa, #e9ecef) !important;
-        color: #2d3436 !important;
-        padding: 0.6rem 0.3rem !important;
-        font-size: 0.85rem !important;
-        border-radius: 10px !important;
-        font-weight: bold !important;
-        border: 2px solid #6c5ce7 !important;
-        transition: all 0.3s !important;
-        width: 100% !important;
-        height: auto !important;
-        text-align: center !important;
-        white-space: nowrap !important;
-        box-shadow: 0 2px 8px rgba(108, 92, 231, 0.1) !important;
-    }
-    .status-btn > button:hover {
-        background: linear-gradient(135deg, #6c5ce7, #a29bfe) !important;
-        color: white !important;
-        transform: scale(1.05) !important;
-        box-shadow: 0 4px 20px rgba(108, 92, 231, 0.4) !important;
-        border-color: #6c5ce7 !important;
-    }
-    
-    /* ===== SMALL BUTTONS ===== */
-    .small-btn > button {
-        padding: 0.1rem 0.2rem !important;
-        font-size: 0.55rem !important;
-        border-radius: 4px !important;
-        font-weight: normal !important;
-        background: rgba(108, 92, 231, 0.08) !important;
-        color: #636e72 !important;
-        border: 1px solid rgba(108, 92, 231, 0.15) !important;
-        transition: all 0.2s !important;
-        width: 100% !important;
-        height: auto !important;
-        min-height: 22px !important;
-    }
-    .small-btn > button:hover {
-        background: rgba(108, 92, 231, 0.15) !important;
-        color: #2d3436 !important;
-        border-color: #6c5ce7 !important;
-        transform: scale(1.02) !important;
-    }
-    
-    /* ===== AUDIO BUTTONS ===== */
-    .audio-btn > button {
-        padding: 0.1rem 0.2rem !important;
-        font-size: 0.55rem !important;
-        border-radius: 4px !important;
-        font-weight: bold !important;
-        width: 100% !important;
-        height: auto !important;
-        min-height: 22px !important;
-        border: 1px solid transparent !important;
-        transition: all 0.2s !important;
-    }
-    .audio-on > button {
-        background: linear-gradient(135deg, #6c5ce7, #a29bfe) !important;
-        color: white !important;
-    }
-    .audio-on > button:hover {
-        transform: scale(1.02) !important;
-        box-shadow: 0 2px 10px rgba(108, 92, 231, 0.3) !important;
-    }
-    .audio-off > button {
-        background: linear-gradient(135deg, #b2bec3, #636e72) !important;
-        color: white !important;
-    }
-    .audio-off > button:hover {
-        transform: scale(1.02) !important;
-    }
-    .audio-vol > button {
-        background: linear-gradient(135deg, #fdcb6e, #f39c12) !important;
-        color: white !important;
-    }
-    .audio-vol > button:hover {
-        transform: scale(1.02) !important;
-        box-shadow: 0 2px 10px rgba(243, 156, 18, 0.3) !important;
-    }
-    
-    /* ===== INPUTS ===== */
-    .stTextInput > div > div > input {
-        padding: 0.3rem 0.5rem !important;
-        font-size: 0.8rem !important;
-        border-radius: 8px !important;
-        background: #f8f9fa !important;
-        border: 1px solid #dfe6e9 !important;
-        color: #2d3436 !important;
-    }
-    .stTextInput > div > div > input:focus {
-        border-color: #6c5ce7 !important;
-        box-shadow: 0 0 15px rgba(108, 92, 231, 0.15) !important;
-    }
-    
-    .stTextArea > div > div > textarea {
-        padding: 0.3rem 0.5rem !important;
-        font-size: 0.7rem !important;
-        min-height: 30px !important;
-        border-radius: 8px !important;
-        background: #f8f9fa !important;
-        border: 1px solid #dfe6e9 !important;
-        color: #2d3436 !important;
-    }
-    .stTextArea > div > div > textarea:focus {
-        border-color: #6c5ce7 !important;
-        box-shadow: 0 0 15px rgba(108, 92, 231, 0.15) !important;
-    }
-    
-    .stAlert {
-        padding: 0.2rem 0.5rem !important;
-        margin: 0.2rem 0 !important;
-        font-size: 0.7rem !important;
-        border-radius: 8px !important;
-    }
-    
-    .stProgress > div > div {
-        background: linear-gradient(135deg, #6c5ce7, #a29bfe) !important;
-        border-radius: 4px !important;
-    }
-    .stProgress > div {
-        height: 4px !important;
-        background: rgba(26, 26, 46, 0.1) !important;
-        border-radius: 4px !important;
-    }
-    
-    .stCaption {
-        font-size: 0.5rem !important;
-        color: #b2bec3 !important;
-        opacity: 0.6 !important;
-    }
-    
-    .info-box {
-        background: rgba(108, 92, 231, 0.08);
-        padding: 0.3rem 0.5rem;
-        border-radius: 8px;
-        border-left: 3px solid #6c5ce7;
-        font-size: 0.7rem;
-        color: #2d3436;
-        margin: 0.3rem 0;
-    }
-    .info-box strong {
-        color: #6c5ce7;
-    }
-    
-    .stRadio > div {
-        gap: 0.2rem !important;
-    }
-    .stRadio label {
-        font-size: 0.7rem !important;
-        color: #b2bec3 !important;
-    }
-    .stRadio label:hover {
-        color: white !important;
-    }
-    
-    .custom-divider {
-        border: none;
-        height: 1px;
-        background: linear-gradient(to right, transparent, rgba(108, 92, 231, 0.2), transparent);
-        margin: 0.3rem 0;
-    }
-    
-    .status-indicator {
+    /* Premium Status Badge */
+    .status-badge {
         display: inline-block;
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        margin-right: 4px;
-    }
-    .status-on {
-        background: #00b894;
-        box-shadow: 0 0 10px rgba(0, 206, 201, 0.3);
-    }
-    .status-off {
-        background: #ff6b6b;
-        box-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+        padding: 0.4rem 1.2rem;
+        border-radius: 30px;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 600;
+        animation: pulseGlow 2s infinite;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        letter-spacing: 0.3px;
+        transition: all 0.3s ease;
     }
     
+    .status-badge:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 25px rgba(99, 102, 241, 0.5);
+    }
+    
+    @keyframes pulseGlow {
+        0%, 100% { box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); }
+        50% { box-shadow: 0 4px 30px rgba(99, 102, 241, 0.6); }
+    }
+    
+    /* Premium Button with 3D effect */
+    .stButton button {
+        width: 100% !important;
+        min-height: 44px !important;
+        height: 44px !important;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%) !important;
+        background-size: 200% 200% !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 14px !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        padding: 0 0.8rem !important;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3) !important;
+        position: relative !important;
+        overflow: hidden !important;
+        animation: buttonGradient 3s ease-in-out infinite !important;
+        letter-spacing: 0.3px !important;
+        text-transform: none !important;
+    }
+    
+    @keyframes buttonGradient {
+        0%, 100% { background-position: 0% 50% !important; }
+        50% { background-position: 100% 50% !important; }
+    }
+    
+    .stButton button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.6s;
+    }
+    
+    .stButton button:hover::before {
+        left: 100%;
+    }
+    
+    .stButton button:hover {
+        transform: translateY(-3px) scale(1.03) !important;
+        box-shadow: 0 10px 35px rgba(99, 102, 241, 0.5) !important;
+    }
+    
+    .stButton button:active {
+        transform: translateY(0px) scale(0.97) !important;
+        box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3) !important;
+    }
+    
+    /* Premium Sidebar */
+    .css-1d391kg {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        border-right: 1px solid rgba(99, 102, 241, 0.1) !important;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.05) !important;
+    }
+    
+    .sidebar-header {
+        text-align: center;
+        padding: 1.5rem 0;
+        border-bottom: 2px solid rgba(99, 102, 241, 0.1);
+        margin-bottom: 1.5rem;
+        animation: fadeIn 1s ease-out;
+    }
+    
+    .sidebar-header .logo-icon {
+        font-size: 2.5rem;
+        display: block;
+        margin-bottom: 0.5rem;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+    
+    .sidebar-header h3 {
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 1.3rem;
+        font-weight: 800;
+        margin: 0;
+        letter-spacing: -0.5px;
+    }
+    
+    .sidebar-header p {
+        color: #888;
+        font-size: 0.7rem;
+        margin: 0.2rem 0 0 0;
+        font-weight: 500;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+    
+    /* Premium ADB Status */
+    .adb-status {
+        padding: 0.6rem;
+        border-radius: 14px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.8rem;
+        animation: glowPulse 2s ease-in-out infinite;
+        transition: all 0.3s ease;
+    }
+    
+    @keyframes glowPulse {
+        0%, 100% { box-shadow: 0 0 10px rgba(0,0,0,0.05); }
+        50% { box-shadow: 0 0 30px rgba(99, 102, 241, 0.15); }
+    }
+    
+    .adb-connected {
+        background: linear-gradient(135deg, #d4edda, #c3e6cb);
+        color: #155724;
+        border: 2px solid #28a745;
+    }
+    
+    .adb-disconnected {
+        background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+        color: #721c24;
+        border: 2px solid #dc3545;
+    }
+    
+    /* Premium Metric Cards */
+    .metric-box {
+        background: white;
+        padding: 0.8rem;
+        border-radius: 16px;
+        border: 1px solid rgba(0,0,0,0.04);
+        text-align: center;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: fadeInUp 0.6s ease-out;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .metric-box::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+        transform: scaleX(0);
+        transition: transform 0.6s ease;
+    }
+    
+    .metric-box:hover::before {
+        transform: scaleX(1);
+    }
+    
+    .metric-box:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 35px rgba(99, 102, 241, 0.12);
+    }
+    
+    .metric-box .value {
+        font-size: 1.4rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .metric-box .label {
+        font-size: 0.7rem;
+        color: #888;
+        margin-top: 0.2rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Premium Progress Bar */
+    .stProgress > div > div {
+        background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899) !important;
+        border-radius: 20px !important;
+        transition: width 1s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3) !important;
+    }
+    
+    .stProgress > div {
+        background: rgba(99, 102, 241, 0.08) !important;
+        border-radius: 20px !important;
+        height: 10px !important;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.05) !important;
+    }
+    
+    /* Premium Input Fields */
+    .stTextInput input, .stSelectbox select, .stTextArea textarea {
+        font-size: 0.85rem !important;
+        border-radius: 14px !important;
+        border: 2px solid rgba(99, 102, 241, 0.1) !important;
+        min-height: 44px !important;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        background: white !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
+    }
+    
+    .stTextInput input:focus, .stSelectbox select:focus, .stTextArea textarea:focus {
+        border-color: #6366f1 !important;
+        box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.08) !important;
+        transform: scale(1.01);
+    }
+    
+    .stTextInput input:hover, .stSelectbox select:hover, .stTextArea textarea:hover {
+        border-color: #8b5cf6 !important;
+    }
+    
+    /* Premium Footer */
     .footer {
         text-align: center;
-        padding: 0.3rem;
-        color: #b2bec3;
-        font-size: 0.5rem;
-        border-top: 1px solid rgba(108, 92, 231, 0.1);
-        margin-top: 0.5rem;
-    }
-    
-    .row-widget.stColumns {
-        gap: 0.3rem !important;
-    }
-    .stMarkdown h2 {
-        font-size: 0.9rem !important;
-        margin: 0.3rem 0 !important;
-        color: #6c5ce7 !important;
-        letter-spacing: 1px;
-    }
-    .stMarkdown h3 {
-        font-size: 0.65rem !important;
-        margin: 0.2rem 0 !important;
-        color: #b2bec3 !important;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    .stMarkdown p {
-        margin: 0.1rem 0 !important;
-        font-size: 0.7rem !important;
-    }
-    
-    .speaker-status-text {
-        font-size: 0.55rem !important;
-        color: #636e72 !important;
-        margin-top: 0.1rem !important;
-    }
-    
-    /* ===== NO RESULTS ===== */
-    .no-results {
-        text-align: center;
         padding: 1rem;
-        color: #636e72;
-        font-size: 0.8rem;
-        background: #f8f9fa;
-        border-radius: 8px;
-        border: 1px dashed #dfe6e9;
+        color: #888;
+        font-size: 0.75rem;
+        border-top: 2px solid rgba(99, 102, 241, 0.05);
+        margin-top: 1.5rem;
+        animation: fadeIn 1.5s ease-out;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+    
+    .footer span {
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-weight: 700;
+    }
+    
+    /* Premium Custom Scrollbar */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: rgba(99, 102, 241, 0.05);
+        border-radius: 20px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        border-radius: 20px;
+        box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, #a855f7, #ec4899);
+    }
+    
+    /* Premium Expander */
+    .streamlit-expanderHeader {
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        background: white !important;
+        border-radius: 14px !important;
+        border: 1px solid rgba(99, 102, 241, 0.1) !important;
+        padding: 0.8rem 1rem !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
+    }
+    
+    .streamlit-expanderHeader:hover {
+        border-color: #6366f1 !important;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.08) !important;
+    }
+    
+    /* Hide default streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Premium Responsive */
+    @media (max-width: 768px) {
+        .main-header {
+            padding: 0.8rem 1rem;
+        }
+        .main-header h1 {
+            font-size: 1.2rem;
+        }
+        .customer-card {
+            padding: 1rem 1.2rem;
+        }
+        .customer-card .name {
+            font-size: 1.1rem;
+        }
+    }
+    
+    /* Loading shimmer effect */
+    .shimmer-loading {
+        animation: shimmerLoading 2s infinite;
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        border-radius: 10px;
+    }
+    
+    @keyframes shimmerLoading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -504,6 +563,10 @@ st.markdown("""
 def init_db():
     conn = sqlite3.connect('crm_data.db')
     c = conn.cursor()
+    try:
+        c.execute("ALTER TABLE customers ADD COLUMN followup_date TEXT")
+    except:
+        pass
     c.execute('''CREATE TABLE IF NOT EXISTS customers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -511,48 +574,67 @@ def init_db():
         status TEXT,
         notes TEXT,
         call_date TEXT,
-        call_time TEXT
+        call_time TEXT,
+        followup_date TEXT
     )''')
     conn.commit()
     conn.close()
 
-def update_customer_status(customer_id, status, notes):
+def save_customer(name, phone, status, notes, followup_date=None):
     conn = sqlite3.connect('crm_data.db')
     c = conn.cursor()
     now = datetime.now()
     c.execute("""
-        UPDATE customers 
-        SET status=?, notes=?, call_date=?, call_time=?
-        WHERE id=?
-    """, (status, notes, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"), customer_id))
+        INSERT INTO customers (name, phone, status, notes, call_date, call_time, followup_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (name, phone, status, notes, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"), followup_date))
     conn.commit()
     conn.close()
+
+def update_customer_status(customer_id, status, notes, followup_date=None):
+    conn = sqlite3.connect('crm_data.db')
+    c = conn.cursor()
+    now = datetime.now()
+    
+    c.execute("SELECT status FROM customers WHERE id=?", (customer_id,))
+    current = c.fetchone()
+    
+    if current and current[0] == status:
+        conn.close()
+        return True
+    
+    if followup_date:
+        c.execute("""
+            UPDATE customers 
+            SET status=?, notes=?, call_date=?, call_time=?, followup_date=?
+            WHERE id=?
+        """, (status, notes, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"), followup_date, customer_id))
+    else:
+        c.execute("""
+            UPDATE customers 
+            SET status=?, notes=?, call_date=?, call_time=?
+            WHERE id=?
+        """, (status, notes, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"), customer_id))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+def update_customer_phone(customer_id, new_phone):
+    try:
+        conn = sqlite3.connect('crm_data.db')
+        c = conn.cursor()
+        c.execute("UPDATE customers SET phone=? WHERE id=?", (new_phone.strip(), customer_id))
+        conn.commit()
+        conn.close()
+        return True
+    except:
+        return False
 
 def get_all_customers():
     conn = sqlite3.connect('crm_data.db')
     c = conn.cursor()
     c.execute("SELECT * FROM customers ORDER BY id")
-    data = c.fetchall()
-    conn.close()
-    return data
-
-def get_called_customers():
-    conn = sqlite3.connect('crm_data.db')
-    c = conn.cursor()
-    c.execute("SELECT * FROM customers WHERE status IS NOT NULL AND status != '' ORDER BY id")
-    data = c.fetchall()
-    conn.close()
-    return data
-
-def search_customers(search_term):
-    conn = sqlite3.connect('crm_data.db')
-    c = conn.cursor()
-    # Search by name or phone
-    c.execute("""
-        SELECT * FROM customers 
-        WHERE name LIKE ? OR phone LIKE ?
-        ORDER BY id
-    """, (f'%{search_term}%', f'%{search_term}%'))
     data = c.fetchall()
     conn.close()
     return data
@@ -568,11 +650,10 @@ def import_from_excel(df, name_col, phone_col):
     conn = sqlite3.connect('crm_data.db')
     c = conn.cursor()
     imported = 0
-    skipped = 0
     
     for _, row in df.iterrows():
-        name = str(row[name_col]).strip() if pd.notna(row[name_col]) else ''
-        phone = str(row[phone_col]).strip() if pd.notna(row[phone_col]) else ''
+        name = str(row[name_col]).strip()
+        phone = str(row[phone_col]).strip()
         phone = ''.join(filter(str.isdigit, phone))
         
         if name and phone:
@@ -580,61 +661,12 @@ def import_from_excel(df, name_col, phone_col):
             if not c.fetchone():
                 c.execute("INSERT INTO customers (name, phone) VALUES (?, ?)", (name, phone))
                 imported += 1
-            else:
-                skipped += 1
     
     conn.commit()
     conn.close()
-    return imported, skipped
+    return imported
 
-def auto_detect_columns(df):
-    name_col = None
-    phone_col = None
-    
-    name_patterns = ['name', 'names', 'customer', 'customer name', 'full name', 
-                     'contact', 'contact name', 'client', 'client name', 'person']
-    
-    phone_patterns = ['phone', 'phones', 'phone number', 'mobile', 'mobile number', 
-                      'contact no', 'contact number', 'telephone', 'cell', 'cell number',
-                      'ph no', 'ph.', 'mob', 'mob no']
-    
-    col_lower = {col: col.lower().strip() for col in df.columns}
-    
-    for col, col_low in col_lower.items():
-        if any(pattern in col_low for pattern in name_patterns):
-            name_col = col
-            break
-    
-    for col, col_low in col_lower.items():
-        if any(pattern in col_low for pattern in phone_patterns):
-            phone_col = col
-            break
-    
-    if name_col is None:
-        for col in df.columns:
-            if df[col].dtype == 'object':
-                sample = df[col].dropna().astype(str)
-                if len(sample) > 0:
-                    if sample.str.contains('[a-zA-Z]').mean() > 0.5:
-                        name_col = col
-                        break
-    
-    if phone_col is None:
-        for col in df.columns:
-            sample = df[col].dropna().astype(str)
-            if len(sample) > 0:
-                if sample.str.replace(r'[\s\+\-\(\)]', '', regex=True).str.isdigit().mean() > 0.5:
-                    phone_col = col
-                    break
-    
-    if name_col is None and len(df.columns) > 0:
-        name_col = df.columns[0]
-    if phone_col is None and len(df.columns) > 1:
-        phone_col = df.columns[1]
-    
-    return name_col, phone_col
-
-# ==================== CALL FUNCTIONS ====================
+# ==================== ADB FUNCTIONS ====================
 def check_adb():
     try:
         result = subprocess.run(['adb', 'devices'], capture_output=True, text=True, timeout=5)
@@ -661,9 +693,9 @@ def call_via_adb(phone):
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         
         if result.returncode == 0:
-            return True, f"Calling {phone}!"
+            return True, f"Call initiated to {phone}!"
         else:
-            return False, "ADB Error!"
+            return False, f"ADB Error: {result.stderr}"
     except Exception as e:
         return False, f"Error: {str(e)}"
 
@@ -678,50 +710,160 @@ def end_call_via_adb():
     except:
         return False, "Error!"
 
-# ==================== VOLUME & SPEAKER ====================
-def volume_up():
-    try:
-        cmd = ['adb', 'shell', 'input', 'keyevent', 'KEYCODE_VOLUME_UP']
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            return True, "Volume Up!"
-        else:
-            return False, "Error increasing volume!"
-    except:
-        return False, "Error!"
-
-def volume_down():
-    try:
-        cmd = ['adb', 'shell', 'input', 'keyevent', 'KEYCODE_VOLUME_DOWN']
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            return True, "Volume Down!"
-        else:
-            return False, "Error decreasing volume!"
-    except:
-        return False, "Error!"
-
-def speaker_on():
-    try:
-        cmd = ['adb', 'shell', 'input', 'keyevent', 'KEYCODE_HEADSETHOOK']
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            return True, "Speaker ON!"
-        else:
-            return False, "Error turning speaker ON!"
-    except:
-        return False, "Error!"
-
-def speaker_off():
-    try:
-        cmd = ['adb', 'shell', 'input', 'keyevent', 'KEYCODE_HEADSETHOOK']
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            return True, "Speaker OFF!"
-        else:
-            return False, "Error turning speaker OFF!"
-    except:
-        return False, "Error!"
+# ==================== VISUALIZATION FUNCTIONS ====================
+def create_premium_charts():
+    customers = get_all_customers()
+    
+    if not customers:
+        return None, None, None
+    
+    # Status distribution with premium colors
+    status_counts = {}
+    for c in customers:
+        status = c[3] if c[3] else "Pending"
+        status_counts[status] = status_counts.get(status, 0) + 1
+    
+    premium_colors = ['#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#f43f5e', '#f59e0b', '#10b981']
+    
+    # Donut Chart with animation
+    fig_donut = go.Figure(data=[go.Pie(
+        labels=list(status_counts.keys()),
+        values=list(status_counts.values()),
+        hole=0.5,
+        marker=dict(
+            colors=premium_colors[:len(status_counts)],
+            line=dict(color='white', width=2)
+        ),
+        textinfo='label+percent',
+        textposition='outside',
+        hoverinfo='label+value+percent',
+        pull=[0.02] * len(status_counts),
+        rotation=90
+    )])
+    
+    fig_donut.update_layout(
+        title=dict(
+            text="<b>📊 Status Distribution</b>",
+            font=dict(size=16, color='#1a1a2e', family='Inter', weight=700)
+        ),
+        showlegend=False,
+        height=320,
+        margin=dict(t=50, b=20, l=20, r=20),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        annotations=[dict(
+            text=f"Total: {len(customers)}",
+            showarrow=False,
+            font=dict(size=14, color='#1a1a2e', weight=700)
+        )]
+    )
+    
+    # Daily call trend with premium styling
+    today = datetime.now().date()
+    dates = []
+    calls = []
+    
+    for i in range(7, -1, -1):
+        date = today - timedelta(days=i)
+        date_str = date.strftime("%Y-%m-%d")
+        count = len([c for c in customers if c[5] == date_str])
+        dates.append(date.strftime("%d %b"))
+        calls.append(count)
+    
+    fig_bar = go.Figure(data=[go.Bar(
+        x=dates,
+        y=calls,
+        marker=dict(
+            color=['#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4'],
+            line=dict(color='white', width=1)
+        ),
+        text=calls,
+        textposition='outside',
+        textfont=dict(size=11, weight=700),
+        hovertemplate='<b>%{x}</b><br>Calls: <b>%{y}</b><extra></extra>'
+    )])
+    
+    fig_bar.update_layout(
+        title=dict(
+            text="<b>📈 Daily Call Activity</b>",
+            font=dict(size=16, color='#1a1a2e', family='Inter', weight=700)
+        ),
+        xaxis=dict(
+            title="Date",
+            gridcolor='rgba(0,0,0,0.05)',
+            showgrid=True,
+            tickfont=dict(size=11)
+        ),
+        yaxis=dict(
+            title="Number of Calls",
+            gridcolor='rgba(0,0,0,0.05)',
+            showgrid=True,
+            tickfont=dict(size=11)
+        ),
+        height=320,
+        margin=dict(t=50, b=30, l=40, r=20),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        bargap=0.3,
+        bargroupgap=0.1
+    )
+    
+    # Performance metrics gauge
+    total = len(customers)
+    completed = len([c for c in customers if c[3] == "Completed"])
+    completion_rate = (completed / total * 100) if total > 0 else 0
+    
+    fig_gauge = go.Figure(data=[go.Indicator(
+        mode="gauge+number+delta",
+        value=completion_rate,
+        number=dict(
+            suffix="%",
+            font=dict(size=24, color='#1a1a2e', weight=700)
+        ),
+        delta=dict(
+            reference=50,
+            increasing=dict(color="#10b981"),
+            decreasing=dict(color="#ef4444")
+        ),
+        gauge=dict(
+            axis=dict(
+                range=[0, 100],
+                tickwidth=1,
+                tickcolor="darkgray",
+                tickfont=dict(size=10)
+            ),
+            bar=dict(
+                color="rgba(99, 102, 241, 1)",
+                thickness=0.3
+            ),
+            bgcolor="rgba(0,0,0,0)",
+            borderwidth=2,
+            bordercolor="rgba(0,0,0,0.1)",
+            steps=[
+                {'range': [0, 30], 'color': 'rgba(239, 68, 68, 0.2)'},
+                {'range': [30, 70], 'color': 'rgba(245, 158, 11, 0.2)'},
+                {'range': [70, 100], 'color': 'rgba(16, 185, 129, 0.2)'}
+            ],
+            threshold=dict(
+                line=dict(color="red", width=4),
+                thickness=0.75,
+                value=90
+            )
+        )
+    )])
+    
+    fig_gauge.update_layout(
+        title=dict(
+            text="<b>🎯 Completion Rate</b>",
+            font=dict(size=16, color='#1a1a2e', family='Inter', weight=700)
+        ),
+        height=320,
+        margin=dict(t=50, b=20, l=20, r=20),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    
+    return fig_donut, fig_bar, fig_gauge
 
 # ==================== REPORT FUNCTIONS ====================
 def generate_report_data():
@@ -733,8 +875,8 @@ def generate_report_data():
         return pd.DataFrame()
     
     df.insert(0, 'Sr No', range(1, len(df) + 1))
-    report_df = df[['Sr No', 'name', 'phone', 'status', 'call_date']]
-    report_df.columns = ['Sr No', 'Name', 'Phone', 'Status', 'Date']
+    report_df = df[['Sr No', 'name', 'phone', 'status', 'call_date', 'call_time']]
+    report_df.columns = ['Sr No', 'Name', 'Phone', 'Status', 'Date', 'Time']
     
     return report_df
 
@@ -753,11 +895,12 @@ def create_pdf_html(df):
     for _, row in df.iterrows():
         rows += f"""
             <tr>
-                <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: center;">{row['Sr No']}</td>
-                <td style="padding: 6px; border-bottom: 1px solid #ddd;">{row['Name']}</td>
-                <td style="padding: 6px; border-bottom: 1px solid #ddd;">{row['Phone']}</td>
-                <td style="padding: 6px; border-bottom: 1px solid #ddd;">{row['Status']}</td>
-                <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: center;">{row['Date'] if row['Date'] else '-'}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: center;">{row['Sr No']}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; font-weight: 500;">{row['Name']}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e0e0e0;">{row['Phone']}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e0e0e0;"><span style="background: linear-gradient(135deg, #6366f1, #a855f7); color: white; padding: 2px 12px; border-radius: 20px; font-size: 12px;">{row['Status']}</span></td>
+                <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: center;">{row['Date'] if row['Date'] else '-'}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: center;">{row['Time'] if row['Time'] else '-'}</td>
             </tr>
         """
     
@@ -768,23 +911,23 @@ def create_pdf_html(df):
         <meta charset="UTF-8">
         <title>Call Report</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
-            .container {{ max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }}
-            .header {{ background: linear-gradient(135deg, #0f0c29, #302b63); color: white; padding: 15px; border-radius: 8px; text-align: center; }}
-            .header h1 {{ margin: 0; font-size: 22px; }}
-            .header p {{ margin: 5px 0 0 0; opacity: 0.8; font-size: 12px; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }}
-            th {{ background: #6c5ce7; color: white; padding: 8px; text-align: left; }}
-            td {{ padding: 6px 8px; border-bottom: 1px solid #e0e0e0; }}
-            tr:hover {{ background: #f0f0ff; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 11px; }}
-            .count {{ background: #6c5ce7; color: white; padding: 3px 10px; border-radius: 15px; font-weight: bold; }}
+            body {{ font-family: 'Inter', Arial, sans-serif; margin: 20px; background: linear-gradient(135deg, #f6f9fc 0%, #e8f0fe 100%); }}
+            .container {{ max-width: 1100px; margin: 0 auto; background: white; padding: 35px; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.08); }}
+            .header {{ background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); color: white; padding: 25px; border-radius: 16px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 26px; font-weight: 800; }}
+            .header p {{ margin: 8px 0 0 0; opacity: 0.9; font-size: 14px; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 25px; font-size: 14px; }}
+            th {{ background: linear-gradient(135deg, #6366f1, #a855f7); color: white; padding: 14px; text-align: left; font-weight: 600; }}
+            td {{ padding: 12px; border-bottom: 1px solid #f0f0f0; }}
+            tr:hover {{ background: rgba(99, 102, 241, 0.04); }}
+            .footer {{ text-align: center; margin-top: 25px; color: #888; font-size: 12px; font-weight: 500; }}
+            .count {{ background: linear-gradient(135deg, #6366f1, #a855f7); color: white; padding: 4px 16px; border-radius: 30px; font-weight: 700; }}
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
-                <h1>📞 Call Report</h1>
+                <h1>🚀 Call Report</h1>
                 <p>Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')} | Total: <span class="count">{len(df)}</span></p>
             </div>
             <table>
@@ -794,10 +937,11 @@ def create_pdf_html(df):
                     <th>Phone</th>
                     <th>Status</th>
                     <th>Date</th>
+                    <th>Time</th>
                 </tr>
                 {rows}
             </table>
-            <div class="footer">Made with ❤️ | Calling CRM by Pankaj Jadhav</div>
+            <div class="footer">⚡ Enterprise Calling CRM Pro</div>
         </div>
     </body>
     </html>
@@ -808,495 +952,634 @@ def create_pdf_html(df):
 # ==================== MAIN APP ====================
 def main():
     init_db()
-    
-    # ===== HEADER - WHITE BACKGROUND =====
-    st.markdown("""
-    <div class="main-header">
-        <h1>📞 Calling CRM</h1>
-        <p>by Pankaj Jadhav</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # ===== ADB STATUS =====
     adb_connected, device_id = check_adb()
     
+    # ===== SIDEBAR =====
     with st.sidebar:
         st.markdown("""
-        <div class="sidebar-brand">
-            <h3>📞 CRM</h3>
-            <p>by Pankaj Jadhav</p>
+        <div class="sidebar-header">
+            <span class="logo-icon">🚀</span>
+            <h3>CRM Pro</h3>
+            <p>Enterprise Edition</p>
         </div>
         """, unsafe_allow_html=True)
         
         if adb_connected:
             st.markdown(f"""
             <div class="adb-status adb-connected">
-                ✅ Connected
+                ✅ Device Connected
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
             <div class="adb-status adb-disconnected">
-                ❌ Not Connected
+                ⚡ Device Disconnected
             </div>
             """, unsafe_allow_html=True)
         
         st.markdown("---")
         
         menu = st.radio(
-            "📋 Menu",
-            ["📞 Call", "📊 Reports", "📂 Import"],
+            "Navigation",
+            ["📞 Call", "📊 History", "📂 Import", "📋 Reports"],
             index=0
         )
         
         st.markdown("---")
         
         if menu == "📂 Import":
-            st.markdown("### 📂 Import Excel")
-            st.caption("Auto-detect Name & Phone columns")
-            
-            uploaded_file = st.file_uploader("Choose Excel file", type=["xlsx", "xls"], label_visibility="collapsed")
+            st.markdown("#### 📤 Import Excel")
+            uploaded_file = st.file_uploader("Choose file", type=["xlsx", "xls"], label_visibility="collapsed")
             
             if uploaded_file:
-                try:
-                    df = pd.read_excel(uploaded_file)
-                    name_col, phone_col = auto_detect_columns(df)
-                    
-                    st.write(f"📊 **{len(df)}** records found")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.markdown(f"✅ **Name Column:** `{name_col}`" if name_col else "❌ Name column not found")
-                    with col2:
-                        st.markdown(f"✅ **Phone Column:** `{phone_col}`" if phone_col else "❌ Phone column not found")
-                    
-                    with st.expander("📋 Preview Data"):
-                        preview_df = df.head(5)[[name_col, phone_col]] if name_col and phone_col else df.head(5)
-                        st.dataframe(preview_df, use_container_width=True)
-                    
-                    if st.button("🚀 Import Data", use_container_width=True, type="primary"):
-                        if name_col and phone_col:
-                            imported, skipped = import_from_excel(df, name_col, phone_col)
-                            st.success(f"✅ {imported} records imported! ({skipped} skipped)")
-                            if imported > 0:
-                                st.balloons()
-                                st.rerun()
-                        else:
-                            st.error("❌ Could not detect Name and Phone columns!")
-                            
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+                df = pd.read_excel(uploaded_file)
+                st.caption(f"📊 {len(df)} records found")
+                
+                cols = df.columns.tolist()
+                name_col = st.selectbox("Name Column", cols, index=0)
+                phone_col = st.selectbox("Phone Column", cols, index=1 if len(cols) > 1 else 0)
+                
+                if st.button("🚀 Import Now", use_container_width=True):
+                    imported = import_from_excel(df, name_col, phone_col)
+                    st.success(f"✅ {imported} customers imported!")
+                    st.balloons()
+                    st.rerun()
         
         st.markdown("---")
         
-        if st.button("🗑️ Clear Data", use_container_width=True):
+        if st.button("🗑️ Clear All Data", use_container_width=True):
             clear_database()
-            st.success("✅ Cleared!")
+            st.success("✅ Data cleared!")
             st.rerun()
         
         st.markdown("---")
-        st.caption("📞 v2.0")
+        
+        # Live Stats in Sidebar
+        all_customers = get_all_customers()
+        st.markdown("#### 📊 Live Stats")
+        st.markdown(f"**Total:** {len(all_customers)}")
+        if all_customers:
+            completed = len([c for c in all_customers if c[3] == "Completed"])
+            st.markdown(f"**Completed:** {completed}")
+            pending = len([c for c in all_customers if not c[3] or c[3] == ""])
+            st.markdown(f"**Pending:** {pending}")
+        
+        st.markdown("---")
+        st.caption("⚡ v3.0 Enterprise")
     
     # ===== CALL SCREEN =====
     if menu == "📞 Call":
+        # Premium Header
+        st.markdown("""
+        <div class="main-header">
+            <div style="display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 1;">
+                <div>
+                    <h1>🚀 Enterprise Calling CRM</h1>
+                    <div class="subtitle">Professional Telecalling Solution</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: rgba(255,255,255,0.9); font-size: 0.85rem; font-weight: 500;">
+                        <span id="live-clock"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
         customers = get_all_customers()
         
         if not customers:
-            st.warning("No customers! Please import Excel from sidebar.")
+            st.warning("No customers found. Please import data first.")
             return
         
-        # Initialize session state
+        # ===== SEARCH & FILTER =====
+        with st.container():
+            st.markdown("""
+            <div style="background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 1.2rem 1.5rem; border-radius: 20px; margin-bottom: 1.5rem; border: 1px solid rgba(99,102,241,0.08); box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3 = st.columns([2, 1.5, 1.5])
+            
+            with col1:
+                search_term = st.text_input("🔍 Search", placeholder="Search by name or phone...", key="search")
+            
+            with col2:
+                status_filter = st.selectbox(
+                    "📊 Filter",
+                    ["All", "Pending", "Not Reachable", "Mobile Off", "Interested", "Call Back", "Meeting Monday", 
+                     "Meeting Tuesday", "Meeting Wednesday", "Meeting Thursday", "Meeting Friday"],
+                    key="filter"
+                )
+            
+            with col3:
+                sort_by = st.selectbox(
+                    "📌 Sort",
+                    ["ID", "Name", "Status", "Date"],
+                    key="sort"
+                )
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Apply filters
+        filtered_customers = customers
+        
+        if search_term and len(search_term) >= 2:
+            filtered_customers = [c for c in filtered_customers if search_term.lower() in c[1].lower() or search_term in c[2]]
+        
+        if status_filter != "All":
+            if status_filter == "Pending":
+                filtered_customers = [c for c in filtered_customers if not c[3] or c[3] == ""]
+            else:
+                filtered_customers = [c for c in filtered_customers if c[3] == status_filter]
+        
+        if sort_by == "Name":
+            filtered_customers = sorted(filtered_customers, key=lambda x: x[1])
+        elif sort_by == "Status":
+            filtered_customers = sorted(filtered_customers, key=lambda x: x[3] if x[3] else "")
+        elif sort_by == "Date":
+            filtered_customers = sorted(filtered_customers, key=lambda x: x[5] if x[5] else "", reverse=True)
+        
+        if not filtered_customers:
+            st.info("No customers match your filters.")
+            return
+        
+        # Progress
         if 'index' not in st.session_state:
             st.session_state.index = 0
-        if 'speaker_status' not in st.session_state:
-            st.session_state.speaker_status = False
-        if 'search_mode' not in st.session_state:
-            st.session_state.search_mode = False
-        if 'search_results' not in st.session_state:
-            st.session_state.search_results = []
-        if 'selected_customer' not in st.session_state:
-            st.session_state.selected_customer = None
         
-        # ===== SEARCH BAR =====
-        st.markdown("### 🔍 Search Customer")
+        if st.session_state.index >= len(filtered_customers):
+            st.session_state.index = len(filtered_customers) - 1
         
-        search_col1, search_col2 = st.columns([5, 1])
-        with search_col1:
-            search_term = st.text_input(
-                "Search by Name or Phone", 
-                placeholder="Type name or phone number...",
-                label_visibility="collapsed",
-                key="search_input"
-            )
-        with search_col2:
-            if st.button("🔍 Search", use_container_width=True):
-                if search_term.strip():
-                    results = search_customers(search_term.strip())
-                    if results:
-                        st.session_state.search_mode = True
-                        st.session_state.search_results = results
-                        st.session_state.selected_customer = None
-                        st.rerun()
-                    else:
-                        st.warning("No customers found!")
-                else:
-                    st.session_state.search_mode = False
-                    st.session_state.search_results = []
-                    st.rerun()
+        customer = filtered_customers[st.session_state.index]
+        cust_id, name, phone, status, notes, call_date, call_time, followup_date = customer
         
-        # ===== SHOW SEARCH RESULTS OR NORMAL VIEW =====
-        if st.session_state.search_mode and st.session_state.search_results:
-            st.markdown("### 📋 Search Results")
-            st.caption(f"Found {len(st.session_state.search_results)} customer(s)")
-            
-            # Show search results as clickable list
-            for cust in st.session_state.search_results:
-                cust_id, name, phone, status, notes, call_date, call_time = cust
-                status_display = status if status else "Pending"
-                
-                col1, col2, col3 = st.columns([4, 3, 1])
-                with col1:
-                    st.markdown(f"""
-                    <div class="search-result">
-                        <div class="search-result-name">👤 {name}</div>
-                        <div class="search-result-phone">📞 {phone}</div>
-                        <small style="color:#636e72;">Status: {status_display}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with col2:
-                    if st.button(f"📞 Call", key=f"search_call_{cust_id}", use_container_width=True):
-                        st.session_state.selected_customer = cust
-                        st.session_state.search_mode = False
-                        st.session_state.index = customers.index(cust)
-                        st.rerun()
-                with col3:
-                    if st.button(f"✏️ Select", key=f"search_select_{cust_id}", use_container_width=True):
-                        st.session_state.selected_customer = cust
-                        st.session_state.search_mode = False
-                        st.session_state.index = customers.index(cust)
-                        st.rerun()
-            
-            # Clear search button
-            if st.button("🔄 Clear Search", use_container_width=True):
-                st.session_state.search_mode = False
-                st.session_state.search_results = []
-                st.session_state.selected_customer = None
-                st.rerun()
+        # Premium Progress
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col2:
+            progress_value = (st.session_state.index + 1) / len(filtered_customers)
+            st.progress(progress_value)
+            st.markdown(f"""
+            <div style="text-align: center; font-weight: 600; color: #1a1a2e; font-size: 0.9rem;">
+                📌 Customer {st.session_state.index + 1} of {len(filtered_customers)}
+            </div>
+            """, unsafe_allow_html=True)
         
-        else:
-            # ===== NORMAL VIEW - Current Customer =====
-            if st.session_state.index >= len(customers):
-                st.session_state.index = len(customers) - 1
-            if st.session_state.index < 0:
-                st.session_state.index = 0
+        # ===== MAIN LAYOUT =====
+        col_left, col_right = st.columns([2, 1])
+        
+        with col_left:
+            # Premium Customer Card
+            st.markdown(f"""
+            <div class="customer-card">
+                <div class="name">👤 {name}</div>
+                <div class="phone">📞 {phone}</div>
+                <div class="info">
+                    Status: <span class="status-badge">{status if status else 'Pending'}</span>
+                    {f" | 📅 {call_date} {call_time}" if call_date else ''}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
             
-            customer = customers[st.session_state.index]
-            cust_id, name, phone, status, notes, call_date, call_time = customer
+            # Phone Controls
+            st.markdown("#### 📱 Phone Controls")
             
-            st.session_state.current_customer_id = cust_id
-            st.session_state.current_phone = phone
+            if f"phone_{cust_id}" not in st.session_state:
+                st.session_state[f"phone_{cust_id}"] = phone
             
-            # ===== METRICS =====
-            called = get_called_customers()
-            total = len(customers)
-            called_count = len(called)
-            pending = total - called_count
+            col1, col2, col3, col4 = st.columns([2, 0.8, 0.8, 0.8])
             
-            col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-value">{total}</div>
-                    <div class="metric-label">Total</div>
-                </div>
-                """, unsafe_allow_html=True)
+                custom_phone = st.text_input(
+                    "",
+                    value=st.session_state[f"phone_{cust_id}"],
+                    key=f"phone_input_{cust_id}",
+                    placeholder="Phone number...",
+                    label_visibility="collapsed"
+                )
+            
             with col2:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-value">{called_count}</div>
-                    <div class="metric-label">Called</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with col3:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-value">{pending}</div>
-                    <div class="metric-label">Pending</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with col4:
-                progress_pct = int(((st.session_state.index + 1) / len(customers)) * 100)
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-value">{progress_pct}%</div>
-                    <div class="metric-label">Progress</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.progress((st.session_state.index + 1) / len(customers))
-            st.caption(f"📌 {st.session_state.index + 1} / {len(customers)}")
-            
-            # ===== MAIN TWO-COLUMN LAYOUT =====
-            left_col, right_col = st.columns([4, 5])
-            
-            # ===== LEFT COLUMN =====
-            with left_col:
-                st.markdown(f"""
-                <div class="customer-card">
-                    <div class="customer-name">👤 {name}</div>
-                    <div class="customer-phone">📞 {phone}</div>
-                    <div class="customer-status">
-                        Status: <strong>{status if status else 'Pending'}</strong>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    custom_phone = st.text_input("📱 Phone", value=phone, key=f"edit_phone_{cust_id}", label_visibility="collapsed")
-                with col2:
-                    if st.button("✏️ Update", use_container_width=True, key=f"update_btn_{cust_id}"):
-                        if custom_phone != phone:
+                if st.button("✏️ Edit", key=f"edit_{cust_id}", use_container_width=True):
+                    if custom_phone and custom_phone != st.session_state[f"phone_{cust_id}"]:
+                        try:
                             conn = sqlite3.connect('crm_data.db')
                             c = conn.cursor()
-                            c.execute("UPDATE customers SET phone=? WHERE id=?", (custom_phone, cust_id))
+                            c.execute("UPDATE customers SET phone=? WHERE id=?", (custom_phone.strip(), cust_id))
                             conn.commit()
                             conn.close()
-                            st.success("✅ Updated!")
-                            st.session_state.current_phone = custom_phone
+                            st.session_state[f"phone_{cust_id}"] = custom_phone.strip()
+                            st.success("✅ Phone updated!")
+                            time.sleep(0.5)
                             st.rerun()
-                
-                notes_text = st.text_area("📝 Notes", value=notes if notes else "", height=30, key=f"notes_{cust_id}", label_visibility="collapsed")
-                
-                st.markdown('<hr class="custom-divider">', unsafe_allow_html=True)
-                
-                # ===== NAVIGATION (SMALL) =====
-                st.markdown('<p class="section-title">📍 Navigation</p>', unsafe_allow_html=True)
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.markdown('<div class="small-btn">', unsafe_allow_html=True)
-                    if st.button("⏮ First", use_container_width=True):
-                        st.session_state.index = 0
-                        st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-                with col2:
-                    st.markdown('<div class="small-btn">', unsafe_allow_html=True)
-                    if st.button("⬅ Prev", use_container_width=True):
-                        if st.session_state.index > 0:
-                            st.session_state.index -= 1
-                            st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-                with col3:
-                    st.markdown('<div class="small-btn">', unsafe_allow_html=True)
-                    if st.button("💾 Save", use_container_width=True):
-                        update_customer_status(cust_id, status if status else "Pending", notes_text if notes_text else "")
-                        st.success("✅ Saved!")
-                        if st.session_state.index < len(customers) - 1:
-                            st.session_state.index += 1
-                            st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-                with col4:
-                    st.markdown('<div class="small-btn">', unsafe_allow_html=True)
-                    if st.button("Next ➡", use_container_width=True):
-                        if st.session_state.index < len(customers) - 1:
-                            st.session_state.index += 1
-                            st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                # ===== AUDIO (SMALL) =====
-                st.markdown('<p class="section-title">🔊 Audio</p>', unsafe_allow_html=True)
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    if st.session_state.speaker_status:
-                        st.markdown('<div class="audio-btn audio-on">', unsafe_allow_html=True)
-                        if st.button("🔊 ON", use_container_width=True):
-                            if adb_connected:
-                                success, msg = speaker_on()
-                                if success:
-                                    st.success("✅ ON!")
-                                    st.session_state.speaker_status = True
-                                    st.rerun()
-                                else:
-                                    st.error(f"❌ {msg}")
-                            else:
-                                st.error("❌ Not connected!")
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    else:
-                        st.markdown('<div class="audio-btn audio-off">', unsafe_allow_html=True)
-                        if st.button("🔇 OFF", use_container_width=True):
-                            if adb_connected:
-                                success, msg = speaker_off()
-                                if success:
-                                    st.success("✅ OFF!")
-                                    st.session_state.speaker_status = False
-                                    st.rerun()
-                                else:
-                                    st.error(f"❌ {msg}")
-                            else:
-                                st.error("❌ Not connected!")
-                        st.markdown('</div>', unsafe_allow_html=True)
-                
-                with col2:
-                    st.markdown('<div class="audio-btn audio-vol">', unsafe_allow_html=True)
-                    if st.button("🔄 Toggle", use_container_width=True):
-                        if adb_connected:
-                            if st.session_state.speaker_status:
-                                success, msg = speaker_off()
-                                if success:
-                                    st.session_state.speaker_status = False
-                                    st.rerun()
-                            else:
-                                success, msg = speaker_on()
-                                if success:
-                                    st.session_state.speaker_status = True
-                                    st.rerun()
-                            if success:
-                                st.success(f"✅ {msg}")
-                            else:
-                                st.error(f"❌ {msg}")
-                        else:
-                            st.error("❌ Not connected!")
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                with col3:
-                    st.markdown('<div class="audio-btn audio-vol">', unsafe_allow_html=True)
-                    if st.button("🔊 Vol +", use_container_width=True):
-                        if adb_connected:
-                            success, msg = volume_up()
-                            if success:
-                                st.success("✅ Vol +")
-                            else:
-                                st.error(f"❌ {msg}")
-                        else:
-                            st.error("❌ Not connected!")
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown('<div class="audio-btn audio-vol">', unsafe_allow_html=True)
-                    if st.button("🔉 Vol -", use_container_width=True):
-                        if adb_connected:
-                            success, msg = volume_down()
-                            if success:
-                                st.success("✅ Vol -")
-                            else:
-                                st.error(f"❌ {msg}")
-                        else:
-                            st.error("❌ Not connected!")
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                status_color = "status-on" if st.session_state.speaker_status else "status-off"
-                status_text = "ON" if st.session_state.speaker_status else "OFF"
-                st.caption(f'<span class="status-indicator {status_color}"></span> Speaker: {status_text}', unsafe_allow_html=True)
+                        except:
+                            st.error("❌ Error updating phone")
             
-            # ===== RIGHT COLUMN =====
-            with right_col:
-                st.markdown('<p class="section-title">📞 Call Controls</p>', unsafe_allow_html=True)
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown('<div class="big-btn-call">', unsafe_allow_html=True)
-                    if st.button("📞 CALL", use_container_width=True, key=f"call_btn_{cust_id}"):
-                        if adb_connected:
-                            success, msg = call_via_adb(st.session_state.current_phone)
-                            if success:
-                                st.success(f"✅ {msg}")
-                                st.session_state.call_active = True
-                            else:
-                                st.error(f"❌ {msg}")
+            with col3:
+                if st.button("📞 Call", key=f"call_{cust_id}", use_container_width=True):
+                    call_phone = custom_phone if custom_phone else phone
+                    if adb_connected:
+                        success, msg = call_via_adb(call_phone)
+                        if success:
+                            st.success(f"✅ {msg}")
+                            st.balloons()
+                            update_customer_status(cust_id, status if status else "Pending", notes if notes else "")
+                            st.rerun()
                         else:
-                            st.error("❌ Phone not connected!")
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                with col2:
-                    st.markdown('<div class="big-btn-end">', unsafe_allow_html=True)
-                    if st.button("⏹ END", use_container_width=True, key=f"end_call_btn_{cust_id}"):
-                        if adb_connected:
-                            success, msg = end_call_via_adb()
-                            if success:
-                                st.success(f"✅ {msg}")
-                                st.session_state.call_active = False
-                            else:
-                                st.error(f"❌ {msg}")
+                            st.error(f"❌ {msg}")
+                    else:
+                        st.error("❌ Phone not connected!")
+            
+            with col4:
+                if st.button("⏹ End", key=f"end_{cust_id}", use_container_width=True):
+                    if adb_connected:
+                        success, msg = end_call_via_adb()
+                        if success:
+                            st.success(f"✅ {msg}")
                         else:
-                            st.error("❌ Phone not connected!")
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                # ===== BIG CALLING NUMBER =====
-                st.markdown(f"""
-                <div class="calling-number-big">
-                    <small>📞 Calling</small>
-                    {st.session_state.current_phone}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # ===== STATUS BUTTONS (BIG) =====
-                st.markdown('<p class="section-title">📋 Status</p>', unsafe_allow_html=True)
-                
-                status_options = [
-                    "No Response", "Not Reachable", "Mobile Off",
-                    "Meeting Mon", "Meeting Tue", "Meeting Wed",
-                    "Meeting Thu", "Meeting Fri", "1 Week Later"
-                ]
-                
-                cols = st.columns(3)
-                for i, option in enumerate(status_options):
-                    col_idx = i % 3
-                    with cols[col_idx]:
-                        st.markdown('<div class="status-btn">', unsafe_allow_html=True)
-                        if st.button(option, key=f"st_{i}_{cust_id}", use_container_width=True):
-                            update_customer_status(cust_id, option, notes_text if notes_text else "")
-                            st.success(f"✅ {option}")
-                            if st.session_state.index < len(customers) - 1:
-                                st.session_state.index += 1
-                                st.rerun()
-                        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # ===== REPORTS =====
-    elif menu == "📊 Reports":
-        st.markdown("## 📊 Reports")
+                            st.error(f"❌ {msg}")
+                    else:
+                        st.error("❌ Phone not connected!")
+            
+            # Status Buttons
+            st.markdown("#### 📌 Quick Status")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                if st.button("✅ Interested", key=f"int_{cust_id}", use_container_width=True):
+                    update_customer_status(cust_id, "Interested", notes if notes else "")
+                    st.success("✅ Status: Interested")
+                    st.balloons()
+                    if st.session_state.index < len(filtered_customers) - 1:
+                        st.session_state.index += 1
+                    st.rerun()
+            
+            with col2:
+                if st.button("📞 Call Back", key=f"cb_{cust_id}", use_container_width=True):
+                    update_customer_status(cust_id, "Call Back", notes if notes else "")
+                    st.success("✅ Status: Call Back")
+                    if st.session_state.index < len(filtered_customers) - 1:
+                        st.session_state.index += 1
+                    st.rerun()
+            
+            with col3:
+                if st.button("📵 Not Reachable", key=f"nr_{cust_id}", use_container_width=True):
+                    update_customer_status(cust_id, "Not Reachable", notes if notes else "")
+                    st.success("✅ Status: Not Reachable")
+                    if st.session_state.index < len(filtered_customers) - 1:
+                        st.session_state.index += 1
+                    st.rerun()
+            
+            with col4:
+                if st.button("📱 Mobile Off", key=f"mo_{cust_id}", use_container_width=True):
+                    update_customer_status(cust_id, "Mobile Off", notes if notes else "")
+                    st.success("✅ Status: Mobile Off")
+                    if st.session_state.index < len(filtered_customers) - 1:
+                        st.session_state.index += 1
+                    st.rerun()
+            
+            # Weekdays
+            st.markdown("#### 📅 Weekday Meetings")
+            col1, col2, col3, col4, col5 = st.columns(5)
+            days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+            for i, day in enumerate(days):
+                with [col1, col2, col3, col4, col5][i]:
+                    if st.button(f"📅 {day}", key=f"day_{day}_{cust_id}", use_container_width=True):
+                        update_customer_status(cust_id, f"Meeting {day}", notes if notes else "")
+                        st.success(f"✅ Meeting {day}")
+                        if st.session_state.index < len(filtered_customers) - 1:
+                            st.session_state.index += 1
+                        st.rerun()
+            
+            # Custom Status
+            st.markdown("#### ✏️ Custom Status")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                custom_status = st.text_input(
+                    "",
+                    placeholder="Type custom status...",
+                    key=f"custom_{cust_id}",
+                    label_visibility="collapsed"
+                )
+            with col2:
+                if st.button("Set Status", key=f"set_custom_{cust_id}", use_container_width=True):
+                    if custom_status and custom_status.strip():
+                        update_customer_status(cust_id, custom_status.strip(), notes if notes else "")
+                        st.success(f"✅ Status: {custom_status.strip()}")
+                        st.balloons()
+                        if st.session_state.index < len(filtered_customers) - 1:
+                            st.session_state.index += 1
+                        st.rerun()
+            
+            # Notes
+            st.markdown("#### 📝 Notes")
+            notes_text = st.text_area(
+                "",
+                value=notes if notes else "",
+                height=60,
+                key=f"notes_{cust_id}",
+                placeholder="Add notes here..."
+            )
+            
+            if st.button("💾 Save Notes", key=f"save_notes_{cust_id}", use_container_width=True):
+                update_customer_status(cust_id, status if status else "Pending", notes_text)
+                st.success("✅ Notes saved!")
+                st.rerun()
+            
+            # Follow-up
+            st.markdown("#### 📅 Follow-up")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                followup_date = st.date_input(
+                    "",
+                    value=datetime.now().date(),
+                    min_value=datetime.now().date(),
+                    key=f"followup_{cust_id}",
+                    label_visibility="collapsed"
+                )
+            with col2:
+                if st.button("📌 Set", key=f"set_followup_{cust_id}", use_container_width=True):
+                    update_customer_status(cust_id, status if status else "Call Back", notes if notes else "", followup_date.strftime("%Y-%m-%d"))
+                    st.success(f"✅ Follow-up: {followup_date.strftime('%d-%m-%Y')}")
+                    st.rerun()
+            
+            # Navigation
+            st.markdown("#### 🧭 Navigation")
+            col1, col2, col3, col4, col5 = st.columns(5)
+            
+            with col1:
+                if st.button("⏮ First", key="nav_first", use_container_width=True):
+                    st.session_state.index = 0
+                    st.rerun()
+            with col2:
+                if st.button("◀ Prev", key="nav_prev", use_container_width=True):
+                    if st.session_state.index > 0:
+                        st.session_state.index -= 1
+                        st.rerun()
+            with col3:
+                if st.button("💾 Save", key="nav_save", use_container_width=True):
+                    update_customer_status(cust_id, status if status else "Pending", notes_text)
+                    st.success("✅ Saved!")
+                    if st.session_state.index < len(filtered_customers) - 1:
+                        st.session_state.index += 1
+                        st.rerun()
+            with col4:
+                if st.button("Next ▶", key="nav_next", use_container_width=True):
+                    if st.session_state.index < len(filtered_customers) - 1:
+                        st.session_state.index += 1
+                        st.rerun()
+            with col5:
+                if st.button("Last ⏭", key="nav_last", use_container_width=True):
+                    st.session_state.index = len(filtered_customers) - 1
+                    st.rerun()
         
-        report_df = generate_report_data()
-        
-        if report_df.empty:
-            st.info("No called customers yet!")
-        else:
-            st.success(f"✅ Total Called: {len(report_df)}")
+        with col_right:
+            # Premium Status Info
+            st.markdown("#### 📊 Current Status")
+            st.markdown(f"""
+            <div style="background: white; padding: 1.2rem; border-radius: 16px; border: 1px solid rgba(99,102,241,0.08); box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+                <p style="margin: 0.3rem 0; display: flex; justify-content: space-between;">
+                    <span style="color: #666;">Status:</span>
+                    <span style="font-weight: 600; color: #1a1a2e;">{status if status else 'Pending'}</span>
+                </p>
+                <p style="margin: 0.3rem 0; display: flex; justify-content: space-between;">
+                    <span style="color: #666;">Last Call:</span>
+                    <span style="font-weight: 600; color: #1a1a2e;">{call_date if call_date else 'N/A'}</span>
+                </p>
+                <p style="margin: 0.3rem 0; display: flex; justify-content: space-between;">
+                    <span style="color: #666;">Time:</span>
+                    <span style="font-weight: 600; color: #1a1a2e;">{call_time if call_time else 'N/A'}</span>
+                </p>
+                <p style="margin: 0.3rem 0; display: flex; justify-content: space-between;">
+                    <span style="color: #666;">Follow-up:</span>
+                    <span style="font-weight: 600; color: #1a1a2e;">{followup_date if followup_date else 'Not set'}</span>
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # Premium Statistics
+            st.markdown("#### 📈 Live Statistics")
+            
+            all_customers = get_all_customers()
+            total = len(all_customers)
             
             col1, col2 = st.columns(2)
             
             with col1:
-                excel_file = download_excel(report_df)
+                st.markdown(f"""
+                <div class="metric-box">
+                    <div class="value">{total}</div>
+                    <div class="label">Total</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                interested = len([c for c in all_customers if c[3] == "Interested"])
+                st.markdown(f"""
+                <div class="metric-box">
+                    <div class="value">{interested}</div>
+                    <div class="label">Interested</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                not_reachable = len([c for c in all_customers if c[3] == "Not Reachable"])
+                st.markdown(f"""
+                <div class="metric-box">
+                    <div class="value">{not_reachable}</div>
+                    <div class="label">Not Reachable</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                pending = len([c for c in all_customers if not c[3] or c[3] == ""])
+                st.markdown(f"""
+                <div class="metric-box">
+                    <div class="value">{pending}</div>
+                    <div class="label">Pending</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                callback = len([c for c in all_customers if c[3] == "Call Back"])
+                st.markdown(f"""
+                <div class="metric-box">
+                    <div class="value">{callback}</div>
+                    <div class="label">Call Back</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                completed = len([c for c in all_customers if c[3] == "Completed"])
+                st.markdown(f"""
+                <div class="metric-box">
+                    <div class="value">{completed}</div>
+                    <div class="label">Completed</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Today's calls
+            today = datetime.now().strftime("%Y-%m-%d")
+            today_calls = len([c for c in all_customers if c[5] == today])
+            st.markdown(f"""
+            <div class="metric-box" style="margin-top: 0.5rem;">
+                <div class="value">{today_calls}</div>
+                <div class="label">Today's Calls</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Follow-ups due
+            today_date = datetime.now().date()
+            followups_due = len([c for c in all_customers if c[7] and datetime.strptime(c[7], "%Y-%m-%d").date() <= today_date])
+            st.markdown(f"""
+            <div class="metric-box" style="margin-top: 0.5rem;">
+                <div class="value">{followups_due}</div>
+                <div class="label">Follow-ups Due</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Premium Charts
+            st.markdown("---")
+            st.markdown("#### 📊 Analytics Dashboard")
+            
+            fig_donut, fig_bar, fig_gauge = create_premium_charts()
+            
+            if fig_donut:
+                st.plotly_chart(fig_donut, use_container_width=True, config={'displayModeBar': False})
+            
+            if fig_bar:
+                st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
+            
+            if fig_gauge:
+                st.plotly_chart(fig_gauge, use_container_width=True, config={'displayModeBar': False})
+    
+    # ===== HISTORY =====
+    elif menu == "📊 History":
+        st.markdown("""
+        <div style="background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 1.2rem 1.5rem; border-radius: 20px; margin-bottom: 1.5rem; border: 1px solid rgba(99,102,241,0.08);">
+            <h2 style="margin: 0; font-size: 1.4rem; color: #1a1a2e; font-weight: 700;">📊 Call History</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        customers = get_all_customers()
+        
+        if not customers:
+            st.warning("No customers found!")
+            return
+        
+        # Filters
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            date_option = st.selectbox(
+                "📅 Date Range",
+                ["All", "Today", "Yesterday", "Last 7 Days", "Last 30 Days", "Custom"]
+            )
+        
+        with col2:
+            if date_option == "Custom":
+                custom_date = st.date_input("Select Date", value=datetime.now().date())
+            else:
+                custom_date = None
+        
+        with col3:
+            status_filter = st.selectbox(
+                "📊 Status",
+                ["All", "Pending", "Not Reachable", "Mobile Off", "Interested", "Call Back", "Completed"]
+            )
+        
+        # Apply filters
+        filtered = customers
+        
+        today = datetime.now().strftime("%Y-%m-%d")
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        last_7_days = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+        last_30_days = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        
+        if date_option == "Today":
+            filtered = [c for c in filtered if c[5] == today]
+        elif date_option == "Yesterday":
+            filtered = [c for c in filtered if c[5] == yesterday]
+        elif date_option == "Last 7 Days":
+            filtered = [c for c in filtered if c[5] and c[5] >= last_7_days]
+        elif date_option == "Last 30 Days":
+            filtered = [c for c in filtered if c[5] and c[5] >= last_30_days]
+        elif date_option == "Custom" and custom_date:
+            date_str = custom_date.strftime("%Y-%m-%d")
+            filtered = [c for c in filtered if c[5] == date_str]
+        
+        if status_filter != "All":
+            if status_filter == "Pending":
+                filtered = [c for c in filtered if not c[3] or c[3] == ""]
+            else:
+                filtered = [c for c in filtered if c[3] == status_filter]
+        
+        st.markdown(f"""
+        <div style="background: white; padding: 1rem; border-radius: 16px; margin-bottom: 1.5rem; border: 1px solid rgba(99,102,241,0.08); box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+            <span style="font-weight: 700; font-size: 1rem; color: #1a1a2e;">Found {len(filtered)} records</span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if filtered:
+            df = pd.DataFrame(filtered, columns=["ID", "Name", "Phone", "Status", "Notes", "Date", "Time", "Follow-up"])
+            df_display = df[["Name", "Phone", "Status", "Date", "Time"]]
+            st.dataframe(df_display, use_container_width=True)
+            
+            # Export
+            col1, col2 = st.columns(2)
+            with col1:
+                excel_file = download_excel(df_display)
                 st.download_button(
-                    label="📥 Excel Report",
+                    "📥 Download Excel",
                     data=excel_file,
-                    file_name=f"call_report_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    file_name=f"history_{datetime.now().strftime('%Y%m%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
-            
             with col2:
-                html_content = create_pdf_html(report_df)
-                b64 = base64.b64encode(html_content.encode()).decode()
-                href = f'''
-                <a href="data:text/html;base64,{b64}" 
-                   target="_blank" 
-                   style="display:block;text-align:center;padding:8px;background:#6c5ce7;color:white;border-radius:8px;text-decoration:none;font-weight:bold;font-size:0.8rem;">
-                    📥 PDF Report
-                </a>
-                '''
+                df_pdf = df_display.copy()
+                df_pdf.insert(0, 'Sr No', range(1, len(df_pdf) + 1))
+                html = create_pdf_html(df_pdf)
+                b64 = base64.b64encode(html.encode()).decode()
+                href = f'<a href="data:text/html;base64,{b64}" target="_blank" style="display:block;text-align:center;padding:12px;background:linear-gradient(135deg, #6366f1, #a855f7);color:white;border-radius:14px;text-decoration:none;font-weight:600;box-shadow:0 4px 15px rgba(99,102,241,0.3);">📥 Download PDF</a>'
+                st.markdown(href, unsafe_allow_html=True)
+    
+    # ===== REPORTS =====
+    elif menu == "📋 Reports":
+        st.markdown("""
+        <div style="background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 1.2rem 1.5rem; border-radius: 20px; margin-bottom: 1.5rem; border: 1px solid rgba(99,102,241,0.08);">
+            <h2 style="margin: 0; font-size: 1.4rem; color: #1a1a2e; font-weight: 700;">📋 Reports</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        report_df = generate_report_data()
+        
+        if report_df.empty:
+            st.info("No data available yet.")
+        else:
+            st.success(f"✅ Total Calls: {len(report_df)}")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                excel_file = download_excel(report_df)
+                st.download_button(
+                    "📥 Download Excel Report",
+                    data=excel_file,
+                    file_name=f"report_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            with col2:
+                html = create_pdf_html(report_df)
+                b64 = base64.b64encode(html.encode()).decode()
+                href = f'<a href="data:text/html;base64,{b64}" target="_blank" style="display:block;text-align:center;padding:12px;background:linear-gradient(135deg, #6366f1, #a855f7);color:white;border-radius:14px;text-decoration:none;font-weight:600;box-shadow:0 4px 15px rgba(99,102,241,0.3);">📥 Download PDF Report</a>'
                 st.markdown(href, unsafe_allow_html=True)
             
-            with st.expander("Preview"):
+            with st.expander("📊 Preview Report"):
                 st.dataframe(report_df, use_container_width=True)
 
 if __name__ == "__main__":
     main()
 
-# ===== FOOTER =====
 st.markdown("""
 <div class="footer">
-    Made with ❤️ by Pankaj Jadhav | Calling CRM v2.0
+    ⚡ <span>Enterprise Calling CRM Pro</span> | Next-Gen Telecalling Solution
 </div>
 """, unsafe_allow_html=True)
